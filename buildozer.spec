@@ -15,6 +15,7 @@ fullscreen = 0
 android.api = 33
 android.minapi = 24
 android.ndk = 25b
+android.sdk = 34
 android.archs = arm64-v8a
 android.allow_backup = True
 android.permissions = INTERNET,RECORD_AUDIO,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,VIBRATE
