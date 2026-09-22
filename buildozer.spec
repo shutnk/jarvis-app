@@ -15,7 +15,6 @@ fullscreen = 0
 android.api = 34
 android.minapi = 24
 android.ndk = 25b
-android.sdk = 34
 android.archs = arm64-v8a
 android.allow_backup = True
 android.permissions = INTERNET,RECORD_AUDIO,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,VIBRATE
@@ -24,5 +23,5 @@ android.release_artifact = aab
 android.debug_artifact = apk
 
 [buildozer]
-log_level = 2
+log_level = 1
 warn_on_root = 1
