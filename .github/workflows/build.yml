@@ -35,7 +35,7 @@ jobs:
 
       - name: Build with Buildozer
         run: |
-          yes | buildozer -v --android-api 34 --android-minapi 24 android debug
+          yes | buildozer -v android debug
         env:
           ANDROID_ACCEPT_LICENSES: "yes"
 
