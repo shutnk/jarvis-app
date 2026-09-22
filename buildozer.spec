@@ -8,7 +8,7 @@ source.include_exts = py,kv,json,png,jpg,ttf
 source.include_patterns = assets/*
 
 version = 0.1.0
-requirements = python3,kivy==2.2.1,requests,urllib3,certifi,chardet,idna
+requirements = python3==3.11.9,kivy==2.2.1,requests,urllib3,certifi,chardet,idna
 
 orientation = portrait
 fullscreen = 0
