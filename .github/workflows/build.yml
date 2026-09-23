@@ -56,15 +56,15 @@ jobs:
           unzip -q "$CMDLINE_TOOLS" -d "$RUNNER_TEMP/android-cmdline-tools"
           mv "$RUNNER_TEMP/android-cmdline-tools/cmdline-tools/"* "$SDK_ROOT/cmdline-tools/latest/"
 
-          # Создаём симлинк, который ищет Buildozer (tools/bin)
+          # Buildozer expects legacy SDK layout under $SDK_ROOT/tools
           mkdir -p "$SDK_ROOT/tools"
           ln -sfn "$SDK_ROOT/cmdline-tools/latest/bin" "$SDK_ROOT/tools/bin"
+          ln -sfn "$SDK_ROOT/cmdline-tools/latest/lib" "$SDK_ROOT/tools/lib"
 
           export ANDROID_HOME="$SDK_ROOT"
           export ANDROID_SDK_ROOT="$SDK_ROOT"
           export PATH="$SDK_ROOT/cmdline-tools/latest/bin:$SDK_ROOT/platform-tools:$PATH"
 
-          # Принимаем лицензии, проверяя статус именно sdkmanager, а не yes
           set +o pipefail
           yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses
           sdkmanager_status=${PIPESTATUS[1]}
