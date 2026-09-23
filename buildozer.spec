@@ -25,3 +25,4 @@ android.debug_artifact = apk
 [buildozer]
 log_level = 1
 warn_on_root = 1
+android.python = /opt/hostedtoolcache/Python/3.11.16/x64/bin/python3
