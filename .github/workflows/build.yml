@@ -58,7 +58,16 @@ jobs:
           export ANDROID_SDK_ROOT="$SDK_ROOT"
           export PATH="$SDK_ROOT/cmdline-tools/latest/bin:$SDK_ROOT/platform-tools:$PATH"
           
+          # Принимаем лицензии БЕЗ падения скрипта из-за SIGPIPE
+          set +o pipefail
           yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses
+          sdkmanager_status=${PIPESTATUS[1]}
+          set -o pipefail
+          
+          if [ "$sdkmanager_status" -ne 0 ]; then
+            exit "$sdkmanager_status"
+          fi
+          
           sdkmanager --sdk_root="$SDK_ROOT" \
             "platform-tools" \
             "platforms;android-34" \
