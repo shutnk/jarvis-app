@@ -26,4 +26,4 @@ android.debug_artifact = apk
 log_level = 1
 warn_on_root = 1
 android.python_version = 3.11
-p4a.extra_args = --python-version=3.11
+p4a.extra_args = --python-version=3.11 --pip-version=25.3
