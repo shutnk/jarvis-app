@@ -92,6 +92,7 @@ jobs:
 
       - name: Build with Buildozer
         run: |
+          set -euxo pipefail
           rm -rf .buildozer bin
           python --version
           python -m buildozer -v android debug

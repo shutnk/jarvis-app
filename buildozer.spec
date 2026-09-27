@@ -8,7 +8,7 @@ source.include_exts = py,kv,json,png,jpg,ttf
 source.include_patterns = assets/*
 
 version = 0.1.0
-requirements = python3,kivy==2.3.1
+requirements = python3==3.11.9,kivy==2.3.1
 
 orientation = portrait
 fullscreen = 0
@@ -25,5 +25,3 @@ android.debug_artifact = apk
 [buildozer]
 log_level = 1
 warn_on_root = 1
-android.python_version = 3.11
-p4a.extra_args = --python-version=3.11 --pip-version=25.3
