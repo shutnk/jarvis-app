@@ -1,4 +1,4 @@
 buildozer==1.5.0
 Cython==3.0.12
-python-for-android>=2024.2.0,<2025
+python-for-android==2024.1.21
 sh>=1.10,<2.0
