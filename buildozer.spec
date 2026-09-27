@@ -8,7 +8,10 @@ source.include_exts = py,kv,json,png,jpg,ttf
 source.include_patterns = assets/*
 
 version = 0.1.0
-requirements = python3,kivy==2.3.1
+# Keep the Android interpreter compatible with Kivy 2.3.1 and the pinned
+# python-for-android toolchain. Without this pin p4a may select CPython 3.14,
+# which produces Android wheels that cannot be installed by the build.
+requirements = python3==3.11.9,kivy==2.3.1
 
 orientation = portrait
 fullscreen = 0
