@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     container:
-      image: kivy/buildozer:latest
+      image: kivy/buildozer:stable
     steps:
       - name: Checkout
         uses: actions/checkout@v4
