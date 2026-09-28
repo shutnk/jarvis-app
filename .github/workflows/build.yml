@@ -7,22 +7,16 @@ on:
 
 jobs:
   build-android:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 90
-    container:
-      image: kivy/buildozer:stable
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Build with Buildozer
-        run: |
-          set -euxo pipefail
-          rm -rf .buildozer bin
-          python --version
-          buildozer -v android debug
-        env:
-          ANDROID_ACCEPT_LICENSES: "yes"
+        uses: ArtemSBulgakov/buildozer-action@v1
+        with:
+          workdir: .
+          buildozer_version: stable
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
