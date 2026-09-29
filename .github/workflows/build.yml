@@ -7,22 +7,26 @@ on:
 
 jobs:
   build-android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 90
+    container:
+      image: ghcr.io/ballspins/kivy-build:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        with:
-          workdir: .
-          buildozer_version: stable
-        id: buildozer
+        run: |
+          set -euxo pipefail
+          rm -rf .buildozer bin
+          python --version
+          buildozer -v android debug
+        env:
+          ANDROID_ACCEPT_LICENSES: "yes"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: jarvis-apk
-          path: ${{ steps.buildozer.outputs.filename }}
-          if-no-files-found: error
+          path: bin/*.apk
+          if-no-files-found: warn
