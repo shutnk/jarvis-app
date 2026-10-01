@@ -93,7 +93,8 @@ jobs:
       - name: Install Buildozer
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install buildozer
+          python3 -m pip install -r requirements.txt
+          python3 -m pip install "charset-normalizer<3.5"
 
       - name: Build APK
         run: |
