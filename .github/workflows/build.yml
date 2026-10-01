@@ -105,8 +105,8 @@ jobs:
       - name: Install Buildozer
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install -r requirements.txt
-          python3 -m pip install "charset-normalizer<3.5"
+          python3 -m pip install -c constraints.txt -r requirements.txt
+          python3 -m pip install -c constraints.txt "charset-normalizer==3.3.2"
 
       - name: Build APK
         run: |
