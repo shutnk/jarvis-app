@@ -10,7 +10,7 @@ source.include_patterns = assets/*
 version = 0.1.0
 # Keep the Android interpreter compatible with Kivy 2.3.1. The workflow
 # patches the p4a recipes so hostpython3 and python3 use this same version.
-requirements = python3==3.13.9,hostpython3==3.13.9,kivy==2.3.1
+requirements = python3==3.11.9,kivy==2.3.1
 
 orientation = portrait
 fullscreen = 0
@@ -27,3 +27,5 @@ android.debug_artifact = apk
 [buildozer]
 log_level = 1
 warn_on_root = 0
+p4a.extra_args = --python-version=3.11.9
+android.python_version = 3.11.9
