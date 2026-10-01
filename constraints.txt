@@ -1,2 +1,1 @@
 charset-normalizer==3.3.2
-sh<2.0,>=1.10
