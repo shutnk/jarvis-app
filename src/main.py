@@ -90,9 +90,6 @@ class JarvisRoot(BoxLayout):
                 Intent = autoclass("android.content.Intent")
                 PythonActivity = autoclass("org.kivy.android.PythonActivity")
 
-                activity = PythonActivity.mActivity
-                self.recognizer = SpeechRecognizer.createSpeechRecognizer(activity)
-
                 app = self
 
                 class RecognitionListener(PythonJavaClass):
@@ -149,18 +146,20 @@ class JarvisRoot(BoxLayout):
                     def onEvent(self, eventType, params):
                         pass
 
-                self.listener = RecognitionListener()
-                self.recognizer.setRecognitionListener(self.listener)
-
-                intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
-
                 @run_on_ui_thread
-                def start_rec():
-                    self.recognizer.startListening(intent)
-                start_rec()
+                def start_recognition():
+                    activity = PythonActivity.mActivity
+                    app.recognizer = SpeechRecognizer.createSpeechRecognizer(activity)
+                    app.listener = RecognitionListener()
+                    app.recognizer.setRecognitionListener(app.listener)
+
+                    intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                    intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
+                    app.recognizer.startListening(intent)
+
+                start_recognition()
 
             except Exception as e:
                 self.status.text = f"Ошибка: {e}"
