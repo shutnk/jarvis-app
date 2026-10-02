@@ -14,6 +14,7 @@ class JarvisRoot(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(orientation="vertical", padding=40, spacing=20, **kwargs)
         self.listening = False
+        self.listener = None
 
         title = Label(
             text="[b]J A R V I S[/b]",
@@ -48,7 +49,6 @@ class JarvisRoot(BoxLayout):
             try:
                 from android.permissions import request_permissions, Permission
                 request_permissions([Permission.RECORD_AUDIO])
-                self.status.text = "Разрешение на микрофон запрошено"
             except Exception as e:
                 self.status.text = f"Ошибка разрешений: {e}"
 
@@ -88,7 +88,7 @@ class JarvisRoot(BoxLayout):
 
         if platform == "android":
             try:
-                from jnius import autoclass
+                from jnius import autoclass, PythonJavaClass, java_method
                 PythonActivity = autoclass("org.kivy.android.PythonActivity")
                 Intent = autoclass("android.content.Intent")
                 RecognizerIntent = autoclass("android.speech.RecognizerIntent")
@@ -100,22 +100,31 @@ class JarvisRoot(BoxLayout):
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
                 intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Говорите...")
 
-                # Запускаем распознавание через startActivityForResult
-                from android import activity
-                activity.bind(on_activity_result=self.on_activity_result)
+                if self.listener is None:
+                    app = self
+
+                    class ResultListener(PythonJavaClass):
+                        __javainterfaces__ = ["android/app/Activity$OnActivityResultListener"]
+                        __javacontext__ = "app"
+
+                        @java_method("(IILandroid/content/Intent;)V")
+                        def onActivityResult(self, request_code, result_code, data):
+                            app.handle_result(request_code, result_code, data)
+
+                    self.listener = ResultListener()
+                    activity.addOnActivityResultListener(self.listener)
+
                 activity.startActivityForResult(intent, 1000)
             except Exception as e:
-                self.status.text = f"Ошибка распознавания: {e}"
+                self.status.text = f"Ошибка: {e}"
                 self.listening = False
                 self.stop_animation()
         else:
-            Clock.schedule_once(lambda dt: self.process_result("Привет, я Джарвис"), 2)
+            Clock.schedule_once(lambda dt: self.respond("Привет, я Джарвис"), 2)
 
-    def on_activity_result(self, request_code, result_code, data):
+    def handle_result(self, request_code, result_code, data):
         if request_code != 1000:
             return
-        from android import activity
-        activity.unbind(on_activity_result=self.on_activity_result)
         self.listening = False
         self.stop_animation()
 
