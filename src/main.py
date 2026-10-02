@@ -14,30 +14,25 @@ class JarvisRoot(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(orientation="vertical", padding=40, spacing=20, **kwargs)
         self.listening = False
+        self.recognizer = None
         self.listener = None
 
         title = Label(
             text="[b]J A R V I S[/b]",
-            markup=True,
-            font_size="42sp",
-            color=(0.3, 0.8, 1, 1),
-            size_hint=(1, 0.25),
+            markup=True, font_size="42sp",
+            color=(0.3, 0.8, 1, 1), size_hint=(1, 0.25),
         )
         self.add_widget(title)
 
         self.status = Label(
             text="Готов к запуску",
-            font_size="20sp",
-            color=(0.8, 0.9, 1, 1),
-            size_hint=(1, 0.45),
+            font_size="20sp", color=(0.8, 0.9, 1, 1), size_hint=(1, 0.45),
         )
         self.add_widget(self.status)
 
         self.btn = Button(
-            text="СЛУШАТЬ",
-            font_size="24sp",
-            background_color=(0.1, 0.5, 0.9, 1),
-            size_hint=(1, 0.2),
+            text="СЛУШАТЬ", font_size="24sp",
+            background_color=(0.1, 0.5, 0.9, 1), size_hint=(1, 0.2),
         )
         self.btn.bind(on_press=self.on_listen)
         self.add_widget(self.btn)
@@ -89,66 +84,100 @@ class JarvisRoot(BoxLayout):
         if platform == "android":
             try:
                 from jnius import autoclass, PythonJavaClass, java_method
-                PythonActivity = autoclass("org.kivy.android.PythonActivity")
-                Intent = autoclass("android.content.Intent")
+                from android.runnable import run_on_ui_thread
+                SpeechRecognizer = autoclass("android.speech.SpeechRecognizer")
                 RecognizerIntent = autoclass("android.speech.RecognizerIntent")
+                Intent = autoclass("android.content.Intent")
+                PythonActivity = autoclass("org.kivy.android.PythonActivity")
+
                 activity = PythonActivity.mActivity
+                self.recognizer = SpeechRecognizer.createSpeechRecognizer(activity)
+
+                app = self
+
+                class RecognitionListener(PythonJavaClass):
+                    __javainterfaces__ = ["android/speech/RecognitionListener"]
+                    __javacontext__ = "app"
+
+                    @java_method("(Landroid/os/Bundle;)V")
+                    def onReadyForSpeech(self, params):
+                        pass
+
+                    @java_method("()V")
+                    def onBeginningOfSpeech(self):
+                        pass
+
+                    @java_method("(F)V")
+                    def onRmsChanged(self, rmsdB):
+                        pass
+
+                    @java_method("([B)V")
+                    def onBufferReceived(self, buffer):
+                        pass
+
+                    @java_method("()V")
+                    def onEndOfSpeech(self):
+                        pass
+
+                    @java_method("(I)V")
+                    def onError(self, error):
+                        app.status.text = f"Ошибка распознавания: {error}"
+                        app.listening = False
+                        app.stop_animation()
+
+                    @java_method("(Landroid/os/Bundle;)V")
+                    def onResults(self, results):
+                        try:
+                            matches = results.getStringArrayList(
+                                SpeechRecognizer.RESULTS_RECOGNITION)
+                            if matches and matches.size() > 0:
+                                text = matches.get(0)
+                                app.status.text = f"Вы: {text}"
+                                Clock.schedule_once(lambda dt: app.respond(text), 0.5)
+                            else:
+                                app.status.text = "Не расслышал"
+                        except Exception as e:
+                            app.status.text = f"Ошибка: {e}"
+                        app.listening = False
+                        app.stop_animation()
+
+                    @java_method("(Landroid/os/Bundle;)V")
+                    def onPartialResults(self, partialResults):
+                        pass
+
+                    @java_method("(Landroid/os/Bundle;)V")
+                    def onEvent(self, eventType, params):
+                        pass
+
+                self.listener = RecognitionListener()
+                self.recognizer.setRecognitionListener(self.listener)
 
                 intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
-                intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Говорите...")
 
-                if self.listener is None:
-                    app = self
+                @run_on_ui_thread
+                def start_rec():
+                    self.recognizer.startListening(intent)
+                start_rec()
 
-                    class ResultListener(PythonJavaClass):
-                        __javainterfaces__ = ["android/app/Activity$OnActivityResultListener"]
-                        __javacontext__ = "app"
-
-                        @java_method("(IILandroid/content/Intent;)V")
-                        def onActivityResult(self, request_code, result_code, data):
-                            app.handle_result(request_code, result_code, data)
-
-                    self.listener = ResultListener()
-                    activity.addOnActivityResultListener(self.listener)
-
-                activity.startActivityForResult(intent, 1000)
             except Exception as e:
                 self.status.text = f"Ошибка: {e}"
                 self.listening = False
                 self.stop_animation()
         else:
-            Clock.schedule_once(lambda dt: self.respond("Привет, я Джарвис"), 2)
-
-    def handle_result(self, request_code, result_code, data):
-        if request_code != 1000:
-            return
-        self.listening = False
-        self.stop_animation()
-
-        if result_code == -1 and data is not None:  # RESULT_OK
-            try:
-                results = data.getStringArrayListExtra("android.speech.extra.RESULTS")
-                if results and results.size() > 0:
-                    text = results.get(0)
-                    self.status.text = f"Вы: {text}"
-                    Clock.schedule_once(lambda dt: self.respond(text), 0.5)
-                    return
-            except Exception as e:
-                self.status.text = f"Ошибка: {e}"
-        self.status.text = "Не расслышал. Попробуйте ещё раз."
+            Clock.schedule_once(lambda dt: self.respond("Привет"), 2)
 
     def respond(self, text):
         text_lower = text.lower()
         if "привет" in text_lower or "здравствуй" in text_lower:
-            answer = "Привет! Я Джарвис. Чем могу помочь?"
+            answer = "Привет! Я Джарвис."
         elif "время" in text_lower:
             from datetime import datetime
             answer = f"Сейчас {datetime.now().strftime('%H:%M')}"
         elif "как дела" in text_lower:
-            answer = "Всё отлично! Готов служить."
+            answer = "Всё отлично!"
         else:
             answer = f"Вы сказали: {text}"
         self.speak(answer)
