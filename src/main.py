@@ -16,6 +16,8 @@ class JarvisRoot(BoxLayout):
         self.listening = False
         self.recognizer = None
         self.listener = None
+        self.tts = None
+        self.tts_ready = False
 
         title = Label(
             text="[b]J A R V I S[/b]",
@@ -37,7 +39,41 @@ class JarvisRoot(BoxLayout):
         self.btn.bind(on_press=self.on_listen)
         self.add_widget(self.btn)
 
-        Clock.schedule_once(self.request_permissions, 0.5)
+        Clock.schedule_once(self.init_tts, 1.0)
+        Clock.schedule_once(self.request_permissions, 1.5)
+
+    def init_tts(self, dt):
+        if platform == "android":
+            try:
+                from jnius import autoclass, PythonJavaClass, java_method
+                from android.runnable import run_on_ui_thread
+                PythonActivity = autoclass("org.kivy.android.PythonActivity")
+                TextToSpeech = autoclass("android.speech.tts.TextToSpeech")
+                Locale = autoclass("java.util.Locale")
+
+                app = self
+
+                class TTSListener(PythonJavaClass):
+                    __javainterfaces__ = ["android/speech/tts/TextToSpeech$OnInitListener"]
+                    __javacontext__ = "app"
+
+                    @java_method("(I)V")
+                    def onInit(self, status):
+                        if status == 0:
+                            app.tts.setLanguage(Locale("ru", "RU"))
+                            app.tts_ready = True
+                            print("TTS initialized")
+                        else:
+                            print(f"TTS init failed: {status}")
+
+                @run_on_ui_thread
+                def create_tts():
+                    activity = PythonActivity.mActivity
+                    app.tts = TextToSpeech(activity, TTSListener())
+
+                create_tts()
+            except Exception as e:
+                print(f"TTS init error: {e}")
 
     def request_permissions(self, dt):
         if platform == "android":
@@ -61,13 +97,15 @@ class JarvisRoot(BoxLayout):
     def speak(self, text):
         if platform == "android":
             try:
-                from jnius import autoclass
-                PythonActivity = autoclass("org.kivy.android.PythonActivity")
-                TextToSpeech = autoclass("android.speech.tts.TextToSpeech")
-                Locale = autoclass("java.util.Locale")
-                tts = TextToSpeech(PythonActivity.mActivity, None)
-                tts.setLanguage(Locale("ru", "RU"))
-                tts.speak(text, TextToSpeech.QUEUE_FLUSH, None, "jarvis_tts")
+                from android.runnable import run_on_ui_thread
+                if self.tts is None or not self.tts_ready:
+                    self.status.text = f"Джарвис: {text} (TTS не готов)"
+                    return
+
+                @run_on_ui_thread
+                def do_speak():
+                    self.tts.speak(text, 0, None, "jarvis_tts")  # 0 = QUEUE_FLUSH
+                do_speak()
                 self.status.text = f"Джарвис: {text}"
             except Exception as e:
                 self.status.text = f"Ошибка TTS: {e}"
