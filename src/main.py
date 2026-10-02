@@ -45,7 +45,7 @@ class JarvisRoot(BoxLayout):
     def init_tts(self, dt):
         if platform == "android":
             try:
-                from jnius import autoclass, PythonJavaClass, java_method
+                from jnius import autoclass
                 from android.runnable import run_on_ui_thread
                 PythonActivity = autoclass("org.kivy.android.PythonActivity")
                 TextToSpeech = autoclass("android.speech.tts.TextToSpeech")
@@ -53,27 +53,22 @@ class JarvisRoot(BoxLayout):
 
                 app = self
 
-                class TTSListener(PythonJavaClass):
-                    __javainterfaces__ = ["android/speech/tts/TextToSpeech$OnInitListener"]
-                    __javacontext__ = "app"
-
-                    @java_method("(I)V")
-                    def onInit(self, status):
-                        if status == 0:
-                            app.tts.setLanguage(Locale("ru", "RU"))
-                            app.tts_ready = True
-                            print("TTS initialized")
-                        else:
-                            print(f"TTS init failed: {status}")
-
                 @run_on_ui_thread
                 def create_tts():
-                    activity = PythonActivity.mActivity
-                    app.tts = TextToSpeech(activity, TTSListener())
+                    try:
+                        activity = PythonActivity.mActivity
+                        app.tts = TextToSpeech(activity, None)
+                        # Устанавливаем язык напрямую
+                        result = app.tts.setLanguage(Locale("ru", "RU"))
+                        print(f"TTS setLanguage result: {result}")
+                        app.tts_ready = True
+                    except Exception as e:
+                        print(f"TTS create error: {e}")
 
                 create_tts()
             except Exception as e:
                 print(f"TTS init error: {e}")
+
 
     def request_permissions(self, dt):
         if platform == "android":
