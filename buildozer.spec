@@ -4,7 +4,7 @@ package.name = jarvis
 package.domain = com.shutnk
 
 source.dir = src
-source.include_exts = py,kv,json,png,jpg,ttf
+source.include_exts = py,kv,json,png,jpg,ttf,mp3
 source.include_patterns = assets/*
 
 version = 0.1.0

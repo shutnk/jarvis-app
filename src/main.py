@@ -6,6 +6,7 @@ from kivy.core.window import Window
 from kivy.animation import Animation
 from kivy.clock import Clock
 from kivy.utils import platform
+from kivy.resources import resource_find
 
 Window.clearcolor = (0.03, 0.05, 0.1, 1)
 
@@ -16,19 +17,16 @@ class JarvisRoot(BoxLayout):
         self.listening = False
         self.recognizer = None
         self.listener = None
-        self.tts = None
-        self.tts_ready = False
 
         title = Label(
-            text="[b]J A R V I S[/b]",
-            markup=True, font_size="42sp",
+            text="[b]J A R V I S[/b]", markup=True, font_size="42sp",
             color=(0.3, 0.8, 1, 1), size_hint=(1, 0.25),
         )
         self.add_widget(title)
 
         self.status = Label(
-            text="Готов к запуску",
-            font_size="20sp", color=(0.8, 0.9, 1, 1), size_hint=(1, 0.45),
+            text="Готов к запуску", font_size="20sp",
+            color=(0.8, 0.9, 1, 1), size_hint=(1, 0.45),
         )
         self.add_widget(self.status)
 
@@ -39,48 +37,7 @@ class JarvisRoot(BoxLayout):
         self.btn.bind(on_press=self.on_listen)
         self.add_widget(self.btn)
 
-        Clock.schedule_once(self.init_tts, 1.0)
-        Clock.schedule_once(self.request_permissions, 1.5)
-
-    def init_tts(self, dt):
-        """Создаём TTS один раз с OnInitListener."""
-        if platform == "android":
-            try:
-                from jnius import autoclass, PythonJavaClass, java_method
-                from android.runnable import run_on_ui_thread
-                PythonActivity = autoclass("org.kivy.android.PythonActivity")
-                TextToSpeech = autoclass("android.speech.tts.TextToSpeech")
-                Locale = autoclass("java.util.Locale")
-
-                app = self
-
-                class TTSListener(PythonJavaClass):
-                    __javainterfaces__ = ["android/speech/tts/TextToSpeech$OnInitListener"]
-                    __javacontext__ = "app"
-
-                    @java_method("(I)V")
-                    def onInit(self, status):
-                        print(f"TTS onInit status={status}")
-                        if status == 0:
-                            res = app.tts.setLanguage(Locale("ru", "RU"))
-                            print(f"TTS setLanguage result={res}")
-                            if res == -1 or res == -2:
-                                print("Russian not supported, fallback to default")
-                                app.tts.setLanguage(Locale.getDefault())
-                            app.tts_ready = True
-                            app.status.text = "TTS готов"
-                        else:
-                            app.status.text = f"TTS ошибка: {status}"
-
-                @run_on_ui_thread
-                def create_tts():
-                    activity = PythonActivity.mActivity
-                    app.tts = TextToSpeech(activity, TTSListener())
-
-                create_tts()
-            except Exception as e:
-                print(f"TTS init error: {e}")
-                self.status.text = f"TTS init: {e}"
+        Clock.schedule_once(self.request_permissions, 0.5)
 
     def request_permissions(self, dt):
         if platform == "android":
@@ -101,29 +58,44 @@ class JarvisRoot(BoxLayout):
         self.btn.font_size = 24
         self.btn.background_color = (0.1, 0.5, 0.9, 1)
 
-    def speak(self, text):
+    def speak(self, filename):
+        """Воспроизводит MP3-файл из assets через MediaPlayer."""
         if platform == "android":
-            if self.tts is None:
-                self.status.text = f"Джарвис: {text} (нет TTS)"
-                return
-            if not self.tts_ready:
-                self.status.text = f"Джарвис: {text} (TTS не готов)"
-                return
+            try:
+                from jnius import autoclass
+                from android.runnable import run_on_ui_thread
 
-            from android.runnable import run_on_ui_thread
+                # Находим файл в assets
+                filepath = resource_find(filename)
+                print(f"Looking for {filename}, found at {filepath}")
+                if not filepath:
+                    self.status.text = f"Файл {filename} не найден"
+                    return
 
-            @run_on_ui_thread
-            def do_speak():
-                try:
-                    result = self.tts.speak(text, 0, None, "jarvis_tts")
-                    print(f"TTS speak result={result}")
-                except Exception as e:
-                    print(f"TTS speak error: {e}")
+                # Копируем в /sdcard/Download для MediaPlayer
+                import shutil
+                dst = f"/sdcard/Download/{filename}"
+                shutil.copy(filepath, dst)
+                print(f"Copied to {dst}")
 
-            do_speak()
-            self.status.text = f"Джарвис: {text}"
+                @run_on_ui_thread
+                def play():
+                    try:
+                        MediaPlayer = autoclass("android.media.MediaPlayer")
+                        player = MediaPlayer()
+                        player.setDataSource(dst)
+                        player.prepare()
+                        player.start()
+                        print("MediaPlayer started")
+                    except Exception as e:
+                        print(f"MediaPlayer error: {e}")
+
+                play()
+                self.status.text = f"Джарвис: [воспроизведение]"
+            except Exception as e:
+                self.status.text = f"Ошибка: {e}"
         else:
-            self.status.text = f"Джарвис: {text}"
+            self.status.text = f"Джарвис: [звук на устройстве]"
 
     def on_listen(self, instance):
         if self.listening:
@@ -148,24 +120,19 @@ class JarvisRoot(BoxLayout):
                     __javacontext__ = "app"
 
                     @java_method("(Landroid/os/Bundle;)V")
-                    def onReadyForSpeech(self, params):
-                        pass
+                    def onReadyForSpeech(self, params): pass
 
                     @java_method("()V")
-                    def onBeginningOfSpeech(self):
-                        pass
+                    def onBeginningOfSpeech(self): pass
 
                     @java_method("(F)V")
-                    def onRmsChanged(self, rmsdB):
-                        pass
+                    def onRmsChanged(self, rmsdB): pass
 
                     @java_method("([B)V")
-                    def onBufferReceived(self, buffer):
-                        pass
+                    def onBufferReceived(self, buffer): pass
 
                     @java_method("()V")
-                    def onEndOfSpeech(self):
-                        pass
+                    def onEndOfSpeech(self): pass
 
                     @java_method("(I)V")
                     def onError(self, error):
@@ -190,12 +157,10 @@ class JarvisRoot(BoxLayout):
                         app.stop_animation()
 
                     @java_method("(Landroid/os/Bundle;)V")
-                    def onPartialResults(self, partialResults):
-                        pass
+                    def onPartialResults(self, partialResults): pass
 
                     @java_method("(Landroid/os/Bundle;)V")
-                    def onEvent(self, eventType, params):
-                        pass
+                    def onEvent(self, eventType, params): pass
 
                 @run_on_ui_thread
                 def start_recognition():
@@ -222,15 +187,13 @@ class JarvisRoot(BoxLayout):
     def respond(self, text):
         text_lower = text.lower()
         if "привет" in text_lower or "здравствуй" in text_lower:
-            answer = "Привет! Я Джарвис."
+            self.speak("hello.mp3")
         elif "время" in text_lower:
-            from datetime import datetime
-            answer = f"Сейчас {datetime.now().strftime('%H:%M')}"
+            self.speak("time.mp3")
         elif "как дела" in text_lower:
-            answer = "Всё отлично!"
+            self.speak("fine.mp3")
         else:
-            answer = f"Вы сказали: {text}"
-        self.speak(answer)
+            self.speak("hello.mp3")
 
 
 class JarvisApp(App):
