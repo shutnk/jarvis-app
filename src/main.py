@@ -6,6 +6,8 @@ from kivy.core.window import Window
 from kivy.animation import Animation
 from kivy.clock import Clock
 from kivy.utils import platform
+import threading
+import os
 
 Window.clearcolor = (0.03, 0.05, 0.1, 1)
 
@@ -16,8 +18,6 @@ class JarvisRoot(BoxLayout):
         self.listening = False
         self.recognizer = None
         self.listener = None
-        self.tts = None
-        self.tts_ready = False
 
         title = Label(
             text="[b]J A R V I S[/b]",
@@ -39,53 +39,13 @@ class JarvisRoot(BoxLayout):
         self.btn.bind(on_press=self.on_listen)
         self.add_widget(self.btn)
 
-        Clock.schedule_once(self.init_tts, 1.0)
-        Clock.schedule_once(self.request_permissions, 1.5)
-
-    def init_tts(self, dt):
-        if platform == "android":
-            try:
-                from jnius import autoclass, PythonJavaClass, java_method
-                from android.runnable import run_on_ui_thread
-                PythonActivity = autoclass("org.kivy.android.PythonActivity")
-                TextToSpeech = autoclass("android.speech.tts.TextToSpeech")
-                Locale = autoclass("java.util.Locale")
-
-                app = self
-
-                class TTSListener(PythonJavaClass):
-                    __javainterfaces__ = ["android/speech/tts/TextToSpeech$OnInitListener"]
-                    __javacontext__ = "app"
-
-                    @java_method("(I)V")
-                    def onInit(self, status):
-                        print(f"TTS onInit status={status}")
-                        if status == 0:
-                            # 0 = SUCCESS
-                            lang_result = app.tts.setLanguage(Locale("ru", "RU"))
-                            print(f"TTS setLanguage result={lang_result}")
-                            if lang_result == -1 or lang_result == -2:
-                                # fallback: любой доступный язык
-                                print("Russian not supported, trying default")
-                                app.tts.setLanguage(Locale.getDefault())
-                            app.tts_ready = True
-                            print("TTS ready")
-
-                @run_on_ui_thread
-                def create_tts():
-                    activity = PythonActivity.mActivity
-                    app.tts = TextToSpeech(activity, TTSListener())
-
-                create_tts()
-            except Exception as e:
-                print(f"TTS init error: {e}")
-
+        Clock.schedule_once(self.request_permissions, 0.5)
 
     def request_permissions(self, dt):
         if platform == "android":
             try:
                 from android.permissions import request_permissions, Permission
-                request_permissions([Permission.RECORD_AUDIO])
+                request_permissions([Permission.RECORD_AUDIO, Permission.INTERNET])
             except Exception as e:
                 self.status.text = f"Ошибка разрешений: {e}"
 
@@ -101,30 +61,71 @@ class JarvisRoot(BoxLayout):
         self.btn.background_color = (0.1, 0.5, 0.9, 1)
 
     def speak(self, text):
+        """Озвучка через gTTS + MediaPlayer (надёжно, но нужен интернет)."""
         if platform == "android":
-            try:
-                from android.runnable import run_on_ui_thread
-                if self.tts is None:
-                    self.status.text = f"Джарвис: {text} (TTS None)"
-                    return
-                if not self.tts_ready:
-                    self.status.text = f"Джарвис: {text} (TTS not ready)"
-                    return
+            def _do_speak():
+                try:
+                    from gtts import gTTS
+                    from jnius import autoclass, cast
+                    from android.runnable import run_on_ui_thread
 
-                @run_on_ui_thread
-                def do_speak():
-                    try:
-                        result = self.tts.speak(text, 0, None, "jarvis_tts")
-                        print(f"TTS speak result={result}")
-                    except Exception as e:
-                        print(f"TTS speak error: {e}")
-                do_speak()
-                self.status.text = f"Джарвис: {text}"
-            except Exception as e:
-                self.status.text = f"Ошибка TTS: {e}"
+                    # Генерируем mp3 через gTTS
+                    tts = gTTS(text=text, lang='ru')
+                    mp3_path = os.path.join(os.path.expanduser("~"), "jarvis_tts.mp3")
+                    tts.save(mp3_path)
+                    print(f"MP3 saved: {mp3_path}")
+
+                    @run_on_ui_thread
+                    def play():
+                        try:
+                            MediaPlayer = autoclass("android.media.MediaPlayer")
+                            File = autoclass("java.io.File")
+                            FileInputStream = autoclass("java.io.FileInputStream")
+
+                            player = MediaPlayer()
+                            fis = FileInputStream(File(mp3_path))
+                            fd = fis.getFD()
+                            player.setDataSource(fd)
+                            fis.close()
+                            player.prepare()
+                            player.start()
+                            print("MediaPlayer started")
+                        except Exception as e:
+                            print(f"MediaPlayer error: {e}")
+
+                    play()
+                except Exception as e:
+                    print(f"gTTS/MediaPlayer error: {e}")
+                    # fallback на Android TTS
+                    self._speak_native(text)
+
+            threading.Thread(target=_do_speak, daemon=True).start()
+            self.status.text = f"Джарвис: {text}"
         else:
             self.status.text = f"Джарвис: {text}"
 
+    def _speak_native(self, text):
+        """Fallback: встроенный Android TTS."""
+        try:
+            from jnius import autoclass
+            from android.runnable import run_on_ui_thread
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            TextToSpeech = autoclass("android.speech.tts.TextToSpeech")
+            Locale = autoclass("java.util.Locale")
+
+            @run_on_ui_thread
+            def do_speak():
+                try:
+                    tts = TextToSpeech(PythonActivity.mActivity, None)
+                    tts.setLanguage(Locale("ru", "RU"))
+                    tts.speak(text, 0, None, "jarvis_tts")
+                    print("Native TTS speak called")
+                except Exception as e:
+                    print(f"Native TTS error: {e}")
+
+            do_speak()
+        except Exception as e:
+            print(f"Native TTS init error: {e}")
 
     def on_listen(self, instance):
         if self.listening:

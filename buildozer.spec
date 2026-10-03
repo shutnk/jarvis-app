@@ -10,7 +10,7 @@ source.include_patterns = assets/*
 version = 0.1.0
 # Keep the Android interpreter compatible with Kivy 2.3.1. The workflow
 # patches the p4a recipes so hostpython3 and python3 use this same version.
-requirements = python3,kivy==2.3.1,pyjnius
+requirements = python3,kivy==2.3.1,pyjnius,gtts
 
 orientation = portrait
 fullscreen = 0
